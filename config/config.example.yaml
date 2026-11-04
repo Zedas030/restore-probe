@@ -140,7 +140,7 @@ services:                        # order = probe order
     backup_max_age_hours: 192    # weekly image → alert after 8 days
     source:
       type: path
-      glob: "/mnt/nas/system-backups/raspi/*/*/*-backup-*.tgz"
+      glob: "/mnt/nas/system-backups/raspi/*/*/*-backup-*.t*"   # .tgz or .tar, newest wins
       restore: false             # check in place, nothing is extracted
     options:
       companions: ["*.img", "*.mbr", "*.sfdisk"]

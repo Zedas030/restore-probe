@@ -1,8 +1,8 @@
-"""Probe module for large full-system archives (e.g. raspiBackup .tgz images) that are too big to restore nightly.
+"""Probe module for large full-system archives (e.g. raspiBackup .tgz/.tar images) that are too big to restore nightly.
 
 The source must set `restore: false`; nothing is extracted and no container is started.
 Stages: 1 archive and companion files present, size plausible · 2 the whole archive reads back without errors
-(gzip CRC + tar structure) · 3 required paths are inside and the entry count did not shrink.
+(compression CRC + tar structure; for plain .tar the headers) · 3 required paths are inside and the entry count did not shrink.
 
 Reading a 10+ GB archive takes minutes, so stage 2 remembers what it already verified (file name, size, mtime)
 in the state directory and only reads an archive once.
@@ -60,8 +60,8 @@ class ArchivePlugin(Plugin):
         found: set[str] = set()
         entries = 0
         errors = ""
-        # Stream the listing: never hold millions of names in memory
-        proc = subprocess.Popen(["tar", "-tzf", str(self.archive)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Stream the listing: never hold millions of names in memory. GNU tar detects gzip/xz/zstd by itself.
+        proc = subprocess.Popen(["tar", "-tf", str(self.archive)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             for line in proc.stdout:
                 entries += 1
@@ -85,7 +85,8 @@ class ArchivePlugin(Plugin):
         self._state_file().write_text(json.dumps({
             "fingerprint": self.fingerprint, "ok": True, "entries": entries, "found": sorted(found),
             "verified_at": datetime.now().strftime("%Y-%m-%d %H:%M")}), encoding="utf-8")
-        return f"read completely, {entries:,} entries, gzip and tar structure intact"
+        kind = "compression and tar structure" if self.archive.suffix in (".tgz", ".gz", ".xz", ".zst", ".bz2") else "tar headers"
+        return f"read completely, {entries:,} entries, {kind} intact"
 
     def stage3(self, deadline: Deadline) -> str:
         required = [r.lstrip("./") for r in self.opt.get("required", [])]

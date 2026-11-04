@@ -68,3 +68,16 @@ def test_archive_corrupted(cfg, tmp_path):
     p = _plugin(cfg, tmp_path, a, {"min_size_gb": 0})
     with pytest.raises(ProbeError, match="damaged"):
         p.stage2(Deadline(30))
+
+
+def test_archive_plain_tar(cfg, tmp_path):
+    a = tmp_path / "host-tar-backup.tar"
+    with tarfile.open(a, "w") as tf:
+        for n in ["./etc/fstab", "./usr/bin/x"]:
+            ti = tarfile.TarInfo(n)
+            ti.size = 1
+            tf.addfile(ti, io.BytesIO(b"x"))
+    p = _plugin(cfg, tmp_path, a, {"required": ["etc/fstab"], "min_size_gb": 0, "min_entries": 2})
+    d = Deadline(30)
+    assert "tar headers intact" in p.stage2(d)
+    assert "2 entries" in p.stage3(d)
