@@ -6,9 +6,10 @@ from .base import Plugin, ServiceResult, StageResult  # noqa: F401
 
 
 def get_plugin_class(name: str) -> type[Plugin]:
-    from . import databases, generic, grafana, homeassistant, influxdb, nginx, prometheus
+    from . import archive, databases, generic, grafana, homeassistant, influxdb, nginx, prometheus
 
     registry: dict[str, type[Plugin]] = {
+        "archive": archive.ArchivePlugin,
         "homeassistant": homeassistant.HomeAssistantPlugin,
         "grafana": grafana.GrafanaPlugin,
         "prometheus": prometheus.PrometheusPlugin,

@@ -54,6 +54,11 @@ Every run (by default 08:00 via systemd timer):
 | generic `files` | any | files present | required files | count/size vs. production |
 | `sqlite` | any | header valid | `integrity_check` | rows per table vs. production |
 | `postgres` / `mariadb` | dump | server ready | dump imported | rows per table |
+| `archive` | full-system image (`restore: false`) | archive + companion files present | whole archive reads back (gzip CRC, tar structure; each image is read only once) | required paths inside, entry count |
+
+**Watching other backup jobs:** any systemd unit can report its own failure through Restore Probe's notifier.
+Add a drop-in (`sudo systemctl edit <unit>`) with `[Unit]` → `OnFailure=restore-probe-failed@%n.service`. Combined
+with an `archive` (or `files`) service for its output, a silently broken weekly job is noticed within a day.
 
 ## Security: the sandbox
 

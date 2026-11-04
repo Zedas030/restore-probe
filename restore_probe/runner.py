@@ -188,15 +188,17 @@ class Runner:
             if info.age_hours > svc.backup_max_age_hours:
                 plugin.warn(f"Backup is {info.age_hours:.0f} h old (allowed: {svc.backup_max_age_hours:.0f} h)")
 
-            need = plugin.estimated_space_bytes(info) / 1e9 + self.cfg.min_free_gb
-            have = free_gb(self.cfg.work_dir)
-            if have < need:
-                raise ProbeError(f"Not enough disk space: {have:.1f} GB free, {need:.1f} GB needed")
-
-            rmtree_force(work)
-            work.mkdir(parents=True)
+            restore = svc.source.get("restore", True)  # false: check the archive in place (huge system images)
+            if restore:
+                need = plugin.estimated_space_bytes(info) / 1e9 + self.cfg.min_free_gb
+                have = free_gb(self.cfg.work_dir)
+                if have < need:
+                    raise ProbeError(f"Not enough disk space: {have:.1f} GB free, {need:.1f} GB needed")
+                rmtree_force(work)
+                work.mkdir(parents=True)
             tr = time.monotonic()
-            source.restore(info, work)
+            if restore:
+                source.restore(info, work)
             plugin.after_restore(info)
             res.restore_seconds = round(time.monotonic() - tr, 1)
             log.info("[%s] restored in %s", svc.name, fmt_duration(res.restore_seconds))

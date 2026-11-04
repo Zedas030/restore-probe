@@ -133,6 +133,21 @@ services:                        # order = probe order
       production_url: http://127.0.0.1:8086
       production_container: influxdb
 
+  - name: system_image
+    title: System image (raspiBackup)
+    plugin: archive              # too big to restore nightly: read the archive once, check contents and age
+    timeout_min: 60
+    backup_max_age_hours: 192    # weekly image → alert after 8 days
+    source:
+      type: path
+      glob: "/mnt/nas/system-backups/raspi/*/*/*-backup-*.tgz"
+      restore: false             # check in place, nothing is extracted
+    options:
+      companions: ["*.img", "*.mbr", "*.sfdisk"]
+      required: [etc/fstab, etc/passwd, usr/bin/systemctl]   # raspiBackup stores /boot/firmware separately as the .img
+      min_size_gb: 2
+      min_entries: 100000
+
   # ---- examples for further services (disabled) ----
   - name: pihole_gravity
     title: Pi-hole gravity DB
