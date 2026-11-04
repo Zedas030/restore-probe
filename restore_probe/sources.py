@@ -118,7 +118,7 @@ class HANativeSource(Source):
             raise
         except Exception as e:  # SecureTar raises unspecific errors for a wrong key
             if protected:
-                raise ProbeError(f"Decryption failed (wrong key?): {type(e).__name__}: {e}") from e
+                raise ProbeError(f"Decryption failed – archive damaged or wrong key: {type(e).__name__}: {e}") from e
             raise ProbeError(f"Extraction failed: {type(e).__name__}: {e}") from e
         finally:
             inner_path.unlink(missing_ok=True)

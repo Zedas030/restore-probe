@@ -64,6 +64,11 @@ def test_prometheus_textfile(cfg):
     assert 'restore_probe_service_ok{service="homeassistant"} 1' in text
     assert 'restore_probe_metric_restored{service="grafana",metric="dashboards"} 3' in text
     assert "restore_probe_isolation_ok 1" in text
+    run["services"].append({"name": "off", "title": "Off", "status": "skipped", "stages": [], "metrics": []})
+    write_prometheus_textfile(cfg.prometheus_textfile, run)
+    text = cfg.prometheus_textfile.read_text()
+    assert 'restore_probe_service_status{service="off"} 3' in text
+    assert 'restore_probe_service_ok{service="off"}' not in text
     assert "restore_probe_run_status 2" in text
     assert text.endswith("\n")
     assert not cfg.prometheus_textfile.with_suffix(".prom.tmp").exists()

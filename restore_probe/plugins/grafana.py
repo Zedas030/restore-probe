@@ -17,12 +17,23 @@ from ..util import Deadline, ProbeError, run
 from .base import Plugin
 
 
+def _unified_count(con: sqlite3.Connection, group: str, resource: str) -> int:
+    """Grafana ≥ 12 keeps dashboards/folders in the 'resource' table (unified storage)."""
+    try:
+        return con.execute('SELECT COUNT(*) FROM resource WHERE "group"=? AND resource=?', (group, resource)).fetchone()[0]
+    except sqlite3.OperationalError:  # older Grafana without unified storage
+        return 0
+
+
 def count_grafana_db(db: Path) -> dict:
+    """Counts that work for legacy (dashboard table) and unified storage (resource table): the larger one wins."""
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=30)
     try:
+        legacy_dash = con.execute("SELECT COUNT(*) FROM dashboard WHERE is_folder=0").fetchone()[0]
+        legacy_fold = con.execute("SELECT COUNT(*) FROM dashboard WHERE is_folder=1").fetchone()[0]
         return {
-            "dashboards": con.execute("SELECT COUNT(*) FROM dashboard WHERE is_folder=0").fetchone()[0],
-            "folders": con.execute("SELECT COUNT(*) FROM dashboard WHERE is_folder=1").fetchone()[0],
+            "dashboards": max(legacy_dash, _unified_count(con, "dashboard.grafana.app", "dashboards")),
+            "folders": max(legacy_fold, _unified_count(con, "folder.grafana.app", "folders")),
             "datasources": con.execute("SELECT COUNT(*) FROM data_source").fetchone()[0],
             "users": con.execute("SELECT COUNT(*) FROM user").fetchone()[0],
             "quick_check": con.execute("PRAGMA quick_check").fetchone()[0],

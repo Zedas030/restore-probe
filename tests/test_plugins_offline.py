@@ -131,6 +131,19 @@ def test_sqlite_counts_and_grafana_counts(tmp_path):
     c = count_grafana_db(db)
     assert c["dashboards"] == 3 and c["folders"] == 1 and c["datasources"] == 1 and c["quick_check"] == "ok"
     assert sqlite_counts(db, None, True)["tables"]["dashboard"] == 4
+    # unified storage (Grafana >= 12): legacy table empty, dashboards in 'resource'
+    con = sqlite3.connect(db)
+    con.executescript("""
+        DELETE FROM dashboard;
+        CREATE TABLE resource ("group" TEXT, resource TEXT, name TEXT);
+        INSERT INTO resource VALUES ('dashboard.grafana.app','dashboards','a'),('dashboard.grafana.app','dashboards','b'),
+                                    ('folder.grafana.app','folders','f'),('rules.alerting.grafana.app','configs','x');
+    """)
+    con.commit()
+    con.close()
+    c = count_grafana_db(db)
+    assert c["dashboards"] == 2 and c["folders"] == 1
+    assert sqlite_counts(db, None, True)["tables"]["dashboard"] == 0   # emptied above (unified storage case)
 
 
 def test_nginx_site_roots(tmp_path):

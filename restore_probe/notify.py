@@ -142,7 +142,11 @@ def write_prometheus_textfile(path: Path, run: dict) -> None:
         lbl = {"service": s["name"]}
         m("restore_probe_service_status", STATUS_NUM.get(s["status"], 2), lbl,
           help_="Status per service: 0 ok, 1 warning, 2 failure, 3 skipped" if first else None)
-        m("restore_probe_service_ok", 1 if s["status"] == "ok" else 0, lbl, help_="1 if the backup is restorable" if first else None)
+        if s["status"] == "skipped":  # disabled services must not look like failures in alerts
+            first = False
+            continue
+        m("restore_probe_service_ok", 1 if s["status"] in ("ok", "warn") else 0, lbl,
+          help_="1 if the backup is restorable (status ok or warn)" if first else None)
         if b.get("age_hours") is not None:
             m("restore_probe_backup_age_hours", b["age_hours"], lbl, help_="Age of the checked backup in hours" if first else None)
         if b.get("timestamp"):

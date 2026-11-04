@@ -73,10 +73,18 @@ def main() -> int:
         print("grafana.db not found in the snapshot")
         return 2
     con = sqlite3.connect(dbs[0])
-    deleted = con.execute("DELETE FROM dashboard WHERE is_folder=0").rowcount
+    deleted = con.execute("DELETE FROM dashboard WHERE is_folder=0").rowcount  # legacy storage
+    try:  # unified storage (Grafana ≥ 12)
+        deleted += con.execute('DELETE FROM resource WHERE "group"=\'dashboard.grafana.app\' AND resource=\'dashboards\'').rowcount
+        con.execute('DELETE FROM resource_history WHERE "group"=\'dashboard.grafana.app\' AND resource=\'dashboards\'')
+    except sqlite3.OperationalError:
+        pass
     con.commit()
     con.close()
     print(f"    {deleted} dashboards deleted")
+    if deleted == 0:
+        print("    nothing to delete – the test would prove nothing")
+        return 2
     with tarfile.open(BASE / "grafana" / "grafana-partial.tar.gz", "w:gz") as tf:
         tf.add(tmp, arcname=".")
     shutil.rmtree(tmp)
