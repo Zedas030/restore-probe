@@ -1,0 +1,32 @@
+[Unit]
+Description=Restore Probe: restore backups and verify them in the sandbox
+Documentation=file:///opt/restore-probe/app/README.md
+After=docker.service network-online.target remote-fs.target
+Wants=network-online.target
+OnFailure=restore-probe-failed@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/restore-probe/venv/bin/restore-probe run
+# Second safety net: whatever happens to the run, sandbox leftovers are removed
+ExecStopPost=/opt/restore-probe/venv/bin/restore-probe cleanup
+EnvironmentFile=-/etc/restore-probe/service.env
+TimeoutStartSec=4h
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=200%
+MemoryMax=2G
+# Hardening (runs as root: needs the Docker socket, iptables and read access to production data)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/restore-probe /var/log/restore-probe /run /var/lib/prometheus/node-exporter
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

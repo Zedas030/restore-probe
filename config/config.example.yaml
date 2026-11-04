@@ -1,0 +1,166 @@
+# Restore Probe – configuration
+# Secrets NEVER live here; they live in the .env (see env_file). ${NAME} in this YAML refers to a value of the .env.
+# Example values below use documentation addresses (192.0.2.x); replace them with your own.
+
+env_file: /etc/restore-probe/.env
+
+general:
+  state_dir: /var/lib/restore-probe        # history, latest.json, staging, restic cache
+  work_dir: /var/lib/restore-probe/work    # temporary restores (emptied after every run)
+  www_dir: /var/lib/restore-probe/www      # HTML report (served by nginx)
+  report_title: Restore Probe
+  min_free_gb: 4                 # this much must stay free after the restore
+  default_timeout_min: 15        # time limit per service (restore + start + checks)
+  backup_max_age_hours: 26       # older backup → warning/alert
+  tolerance_percent: 5           # the sandbox may be at most this many percent below production
+  data_drop_alert_percent: 20    # alert when a value drops by more than this compared with the previous run
+  history_keep: 90               # number of runs kept in the history
+  prometheus_textfile: /var/lib/prometheus/node-exporter/restore_probe.prom   # node_exporter textfile collector; empty = off
+
+sandbox:
+  network: restore-probe         # internal Docker network (no gateway, no route to the LAN)
+  subnet: 172.30.99.0/24
+  bridge_name: rp-sandbox        # fixed bridge name so the iptables rule can match it
+  memory: 1536m
+  cpus: "2"
+  pids_limit: 512
+  isolation_image: alpine:3.20   # tiny container for the isolation test (pull once: docker pull alpine:3.20)
+  block_host_access: true        # iptables: drop new connections from the sandbox to the host
+  isolation_must_fail:           # these targets MUST be unreachable from the sandbox, otherwise no service starts
+    - "@gateway:80"              # your router (default gateway)
+    - 192.0.2.86:6638            # Zigbee coordinator in network mode
+    - 192.0.2.10:1883            # MQTT broker on the host via its LAN IP
+    - 192.0.2.10:8123            # production Home Assistant
+    - 192.0.2.28:445             # NAS
+    - "@host_bridge:1883"        # MQTT broker via the sandbox bridge (only closed by the iptables rule)
+
+home_assistant:                  # notifications and status sensors
+  enabled: true
+  url: http://127.0.0.1:8123
+  token: ${HA_TOKEN}             # long-lived access token of an admin user (create a dedicated one for Restore Probe)
+  notify_service: notify.mobile_app_phone   # empty = persistent_notification only
+  persistent_notification: true
+  sensor_prefix: restore_probe   # sensor.restore_probe_<service>_status etc.
+  heartbeat_entity: input_datetime.restore_probe_last_run   # survives HA restarts; basis of the dead-man's-switch automation
+
+restic:
+  repository: ${RESTIC_REPOSITORY}
+  password: ${RESTIC_PASSWORD}
+  binary: restic
+  require_mount: /mnt/nas        # back up only when the NAS is mounted (never fall back to the SD card silently)
+  keep: { daily: 7, weekly: 4, monthly: 6 }
+  check_every_days: 7            # restic check with a data sample
+  check_read_data_subset: "5%"
+  backup_sets:                   # 'restore-probe backup' saves these sets, tag = name
+    - name: grafana
+      type: sqlite               # consistent copy via SQLite online backup
+      db: /var/lib/grafana/grafana.db
+      extra_paths: [/var/lib/grafana/plugins, /etc/grafana]
+    - name: prometheus
+      type: prometheus_snapshot  # needs --web.enable-admin-api on Prometheus
+      url: http://127.0.0.1:9090
+      dir: /var/lib/prometheus/metrics2
+      extra_paths: [/etc/prometheus]
+    - name: nginx
+      type: files
+      paths: [/etc/nginx, /var/www]
+    - name: influxdb
+      type: influxdb_portable    # influxd backup -portable inside the production container
+      container: influxdb
+      host_path: /srv/influxdb
+      inner_path: /var/lib/influxdb
+      extra_paths: [/srv/influxdb.conf]
+    - name: pihole
+      type: sqlite
+      db: /etc/pihole/gravity.db
+      extra_paths: [/etc/pihole/pihole.toml, /etc/pihole/dhcp.leases, /etc/dnsmasq.d]
+    - name: mosquitto
+      type: files
+      paths: [/etc/mosquitto]
+    - name: compose_stacks
+      type: files
+      paths: [/srv/docker]
+      exclude: ["*.bak*"]
+
+services:                        # order = probe order
+  - name: homeassistant
+    title: Home Assistant
+    plugin: homeassistant
+    timeout_min: 20
+    source:
+      type: ha_native            # HA's own backups (encrypted)
+      dirs: [/srv/homeassistant/backups, /mnt/nas/system-backups/homeassistant]
+      pattern: "Automatic_backup_*.tar"
+      key: ${HA_BACKUP_KEY}      # encryption key from the HA emergency kit
+    options:
+      production_config_dir: /srv/homeassistant
+      production_container: homeassistant   # sandbox uses exactly this image (by digest)
+      allow_integrations: [sun, backup, template, utility_meter, integration, shopping_list, analytics, radio_browser, google_translate, met]
+      remove_domains: [shell_command, wake_on_lan, rest_command, telegram_bot, notify]
+      tolerance_absolute: 2      # small counts (automations) may differ by this many items
+      # cap_add: [CHOWN, DAC_OVERRIDE]   # only if the image does not start otherwise
+
+  - name: grafana
+    title: Grafana
+    plugin: grafana
+    source: { type: restic, tag: grafana }
+    options:
+      production_db: /var/lib/grafana/grafana.db
+      image: auto                # version from 'grafana server -v' → grafana/grafana:<version>
+
+  - name: prometheus
+    title: Prometheus
+    plugin: prometheus
+    source: { type: restic, tag: prometheus }
+    options:
+      production_url: http://127.0.0.1:9090
+      image: auto                # → prom/prometheus:v<version>
+
+  - name: nginx
+    title: nginx (websites)
+    plugin: nginx
+    source: { type: restic, tag: nginx }
+    options:
+      production_www: /var/www
+      image: auto                # → nginx:<version>
+      expect_status: [200, 301, 302, 403]
+
+  - name: influxdb
+    title: InfluxDB
+    plugin: influxdb
+    source: { type: restic, tag: influxdb }
+    options:
+      production_url: http://127.0.0.1:8086
+      production_container: influxdb
+
+  # ---- examples for further services (disabled) ----
+  - name: pihole_gravity
+    title: Pi-hole gravity DB
+    plugin: sqlite
+    enabled: false
+    source: { type: restic, tag: pihole }
+    options:
+      file: var/lib/restore-probe/staging/pihole/gravity.db
+      production_file: /etc/pihole/gravity.db
+      tables: [adlist, domainlist, client, "group"]
+
+  - name: websites_archive
+    title: Websites archive (NAS)
+    plugin: files
+    enabled: false
+    source: { type: path, glob: "/mnt/nas/backups/websites/websites-*.tar.gz" }
+    options:
+      restored_path: var/www
+      compare_dir: /var/www
+      required: [index.html]
+
+  - name: example_postgres
+    title: Example PostgreSQL
+    plugin: postgres
+    enabled: false
+    source: { type: path, glob: "/mnt/nas/system-backups/pg/*.dump" }
+    options:
+      image: postgres:16
+      database: app
+      tables: [public.users]
+      # production: { host: 127.0.0.1, port: 5432, user: app, password: "${PG_PASSWORD}", database: app }

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "restore-probe"
+version = "1.0.0"
+description = "Prüft jede Nacht, ob Backups wirklich wiederherstellbar sind: zurückspielen, in einer isolierten Sandbox starten, Daten vergleichen."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "securetar>=2025.1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+restore-probe = "restore_probe.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["restore_probe*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

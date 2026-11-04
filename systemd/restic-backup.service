@@ -1,0 +1,30 @@
+[Unit]
+Description=Restore Probe: restic backup of services without a backup of their own
+After=network-online.target remote-fs.target docker.service
+Wants=network-online.target
+OnFailure=restore-probe-failed@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/restore-probe/venv/bin/restore-probe backup
+TimeoutStartSec=6h
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=150%
+MemoryMax=1536M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Write access: state/logs and the node_exporter textfile directory. Host-specific paths (restic repository,
+# NAS mount, Prometheus snapshot dir, InfluxDB backup folder) come from config.yaml via the drop-in
+# /etc/systemd/system/restic-backup.service.d/paths.conf, which install.sh generates.
+ReadWritePaths=/var/lib/restore-probe /var/log/restore-probe /run /var/lib/prometheus/node-exporter
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

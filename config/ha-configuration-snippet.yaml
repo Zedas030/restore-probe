@@ -1,0 +1,8 @@
+# Add to Home Assistant's configuration.yaml (install.sh --ha-setup does this when the entry is missing),
+# then reload "Input datetime" under Developer tools → YAML (or restart HA).
+input_datetime:
+  restore_probe_last_run:
+    name: Restore Probe last run
+    has_date: true
+    has_time: true
+    icon: mdi:backup-restore

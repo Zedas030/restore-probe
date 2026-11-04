@@ -1,0 +1,33 @@
+# Home Assistant automation: dead-man's switch, part 2.
+# Reports when Restore Probe has not reported a run for more than 36 h (timer off, token broken, host gone).
+# Based on input_datetime.restore_probe_last_run (survives HA restarts), see ha-configuration-snippet.yaml.
+# Created by install.sh --ha-setup via the REST API (POST /api/config/automation/config/restore_probe_dead_mans_switch).
+# The notify action is replaced by home_assistant.notify_service from your config.yaml.
+alias: "Restore Probe: no report for 36 h"
+description: "Dead-man's switch for Restore Probe. Created by install.sh."
+mode: single
+triggers:
+  - trigger: time
+    at: "10:00:00"
+  - trigger: time
+    at: "20:00:00"
+conditions:
+  - condition: template
+    value_template: >-
+      {% set s = states('input_datetime.restore_probe_last_run') %}
+      {{ s in ['unknown', 'unavailable'] or (now() - (s | as_datetime | as_local)).total_seconds() > 36 * 3600 }}
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      title: "Restore Probe is silent"
+      message: >-
+        Last reported run: {{ states('input_datetime.restore_probe_last_run') }}.
+        Check timer, token or host: systemctl status restore-probe.timer
+      data:
+        tag: restore-probe-dead
+  - action: persistent_notification.create
+    data:
+      notification_id: restore_probe_dead
+      title: "Restore Probe is silent"
+      message: >-
+        No run reported for more than 36 h (last: {{ states('input_datetime.restore_probe_last_run') }}).

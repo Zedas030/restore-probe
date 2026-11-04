@@ -1,0 +1,6 @@
+[Unit]
+Description=Restore Probe: report that %i itself crashed (dead-man's switch, part 1)
+
+[Service]
+Type=oneshot
+ExecStart=/opt/restore-probe/app/scripts/restore-probe-failed.sh %i

@@ -1,0 +1,11 @@
+[Unit]
+Description=Restore Probe daily (after the nightly backups have finished)
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+RandomizedDelaySec=5min
+Persistent=true
+Unit=restore-probe.service
+
+[Install]
+WantedBy=timers.target
