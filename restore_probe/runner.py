@@ -125,6 +125,11 @@ class Runner:
             self.result.notes.append(w)
             log.warning(w)
         wait_for_docker(float(self.cfg.env.get("DOCKER_WAIT_MIN", 45)))
+        if not Sandbox.memory_limits_supported():
+            msg = ("Memory limits are NOT enforced: the kernel's memory cgroup is disabled "
+                   "(Raspberry Pi: add 'cgroup_enable=memory' to /boot/firmware/cmdline.txt and reboot)")
+            self.result.notes.append(msg)
+            log.warning(msg)
         stale = Sandbox.cleanup_stale()
         if stale:
             self.result.notes.append(f"{len(stale)} container(s) of an earlier run removed")

@@ -135,6 +135,8 @@ def cmd_selftest(args, cfg) -> int:
     iso = sb.verify_isolation(targets, Deadline(180))
     print("Sandbox network:", cfg.sandbox.network, cfg.sandbox.subnet, "bridge IP", host_ip)
     print("iptables rule:", "active" if sb.host_block_rule_present() else "MISSING")
+    mem = Sandbox.memory_limits_supported()
+    print("Memory limits:", "enforced" if mem else "NOT enforced (memory cgroup disabled, see README → Troubleshooting)")
     for c in iso.checks:
         print(f"  {'REACHABLE ❌' if c['reachable'] else 'blocked   ✅'}  {c['target']}")
     print("Isolation:", "PROVEN" if iso.passed else "BROKEN")

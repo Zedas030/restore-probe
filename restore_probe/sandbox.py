@@ -90,6 +90,15 @@ class Sandbox:
     def host_block_rule_present(self) -> bool:
         return run(["iptables", "-C", *self._rule()], check=False, quiet=True).ok
 
+    @staticmethod
+    def memory_limits_supported() -> bool:
+        """Can Docker enforce --memory? Raspberry Pi kernels ship with the memory cgroup disabled by default."""
+        try:
+            return "memory" in Path("/sys/fs/cgroup/cgroup.controllers").read_text().split()
+        except OSError:
+            info = run(["docker", "info"], check=False, quiet=True)
+            return "No memory limit support" not in (info.stdout + info.stderr)
+
     def timezone(self) -> str:
         """Timezone for the containers: sandbox.timezone, otherwise the host's (/etc/timezone), otherwise UTC."""
         if self.cfg.timezone:

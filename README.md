@@ -304,6 +304,7 @@ automation and `input_datetime.restore_probe_last_run`, the restic repository.
 | Grafana shows fewer dashboards via API than in the DB | dashboards in folders with restricted permissions are invisible anonymously → the "dashboards (in DB)" metric still counts; if needed set `GF_AUTH_ANONYMOUS_ORG_ROLE` to `Admin` (sandbox only) |
 | No HA notification despite failure | `sudo restore-probe notify-test`; token expired? `journalctl -u restore-probe \| grep "Home Assistant"` |
 | Sundays "Docker has been unreachable for 45 min" | a full-system backup stops Docker for longer; raise `DOCKER_WAIT_MIN` in `.env` or move the timer |
+| `Memory limits are NOT enforced` (run notes, `selftest`) / `docker info`: "No memory limit support" | the kernel's memory cgroup is off – the default on Raspberry Pi OS. Add `cgroup_enable=memory` to the single line in `/boot/firmware/cmdline.txt` (keep a backup), reboot, then `sudo restore-probe selftest` must say "enforced". Without it neither the sandbox `--memory` limit nor `MemoryMax=` of the units has any effect |
 | Leftovers after an abort | `sudo restore-probe cleanup` (also happens automatically at the next start and via `ExecStopPost`) |
 
 All containers carry the label `restore-probe=1`: `docker ps -a --filter label=restore-probe=1`.
