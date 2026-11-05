@@ -141,6 +141,19 @@ Resources: the systemd units limit the tool itself (`MemoryMax=2G`, `CPUQuota=20
 sandbox containers get `sandbox.memory`/`sandbox.cpus` from the YAML (default 1.5 GB / 2 CPUs). Before each
 restore the tool checks that `min_free_gb` will still be free afterwards.
 
+**Web report:** a single self-contained page (the shared homelab theme is inlined, no external fonts or CDNs) with
+an overall verdict on top, KPI tiles, one card per service with its three stages, the isolation proof and the run
+history. It follows the OS light/dark setting; the moon button toggles it and the browser remembers the choice.
+Two optional settings add a button back to your dashboard:
+
+```yaml
+ui:
+  home_url: http://192.0.2.10:8092/   # empty (default) = no button
+  home_label: Dashboard               # default "Dashboard"
+```
+
+After changing them run `sudo restore-probe report` to re-render the page from the stored results (no new run).
+
 Result status: `ok` · `warn` (checks passed but with a note: stale backup, data drop vs. the previous run, setup errors in the log) · `fail` · `skipped`.
 
 ## Notifications, sensors, metrics

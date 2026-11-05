@@ -78,6 +78,12 @@ class ResticConfig:
 
 
 @dataclass
+class UIConfig:
+    home_url: str = ""          # empty = no dashboard button in the report header
+    home_label: str = "Dashboard"
+
+
+@dataclass
 class ServiceConfig:
     name: str
     plugin: str
@@ -110,6 +116,7 @@ class Config:
     services: list[ServiceConfig]
     env: dict[str, str]
     warnings: list[str]
+    ui: UIConfig = field(default_factory=UIConfig)
 
 
 _ENV_REF = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
@@ -146,6 +153,7 @@ def load_config(path: Path = DEFAULT_CONFIG, env_path: Path | None = None) -> Co
     sb = raw.get("sandbox", {})
     ha = raw.get("home_assistant", {})
     rc = raw.get("restic", {})
+    ui = raw.get("ui") or {}
 
     services: list[ServiceConfig] = []
     names = set()
@@ -201,4 +209,8 @@ def load_config(path: Path = DEFAULT_CONFIG, env_path: Path | None = None) -> Co
         services=services,
         env=env,
         warnings=warnings,
+        ui=UIConfig(
+            home_url=str(ui.get("home_url") or "").strip(),
+            home_label=str(ui.get("home_label") or "Dashboard").strip() or "Dashboard",
+        ),
     )

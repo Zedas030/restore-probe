@@ -46,7 +46,7 @@ def test_json_history_and_html(cfg):
     out = write_html(cfg)
     html = out.read_text(encoding="utf-8")
     assert "Home Assistant" in html and "failed" in html
-    assert "<script>" not in html and "&lt;script&gt;" in html    # error texts are escaped
+    assert "12 <script>" not in html and "12 &lt;script&gt;" in html    # error texts are escaped
     assert "Isolation proof" in html and "192.0.2.1:80" in html
     assert (cfg.www_dir / "latest.json").exists()
     assert load_history(cfg)[0]["run_id"].startswith("2026110")
@@ -54,6 +54,32 @@ def test_json_history_and_html(cfg):
 
 def test_render_html_without_runs(cfg):
     assert "No run recorded yet" in render_html(cfg, [])
+
+
+def test_html_theme_hero_and_home_button(cfg):
+    page = render_html(cfg, [_run()])
+    assert "--surface-3" in page and "data-theme" in page          # shared theme inlined (works offline)
+    assert "hl-theme" in page and "Toggle light/dark" in page
+    assert "1 of 2 backups not restorable" in page and "class='card hero bad'" in page
+    assert "Services ok" in page and "Oldest backup" in page and "1/2" in page
+    assert page.count("class='stages'") == 2 and "Stage 3" in page
+    assert "class='btn cross home-btn'" not in page     # no dashboard link unless configured
+    cfg.ui.home_url = "http://192.0.2.10:8092/"
+    cfg.ui.home_label = "My <Dashboard>"
+    page = render_html(cfg, [_run("ok", "ok")])
+    assert "href='http://192.0.2.10:8092/'" in page and "My &lt;Dashboard&gt;" in page
+    assert "All 2 backups restorable" in page and "class='card hero ok'" in page
+
+
+def test_html_unreached_stages_and_warn(cfg):
+    run = _run("warn", "fail")
+    run["services"][1]["stages"] = run["services"][1]["stages"][:1]
+    run["services"][1]["stages"][0]["ok"] = False
+    page = render_html(cfg, [run])
+    assert page.count("<span class='st-detail'>not reached</span>") == 2
+    run = _run("warn", "ok")
+    run["status"] = "warn"
+    assert "All 2 backups restorable, 1 with notes" in render_html(cfg, [run])
 
 
 def test_prometheus_textfile(cfg):

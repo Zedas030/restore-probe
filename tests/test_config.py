@@ -65,3 +65,19 @@ def test_example_config_loads(tmp_path):
     env.write_text("HA_TOKEN=x\nHA_BACKUP_KEY=x\nRESTIC_REPOSITORY=/tmp/r\nRESTIC_PASSWORD=x\n")
     cfg = load_config(example, env_path=env)
     assert {s.name for s in cfg.services} >= {"homeassistant", "grafana", "prometheus", "nginx", "influxdb"}
+
+
+def test_ui_settings(tmp_path):
+    conf = tmp_path / "config.yaml"
+    base = textwrap.dedent(f"""
+        env_file: {tmp_path / '.env'}
+        general: {{state_dir: {tmp_path}}}
+        services:
+          - {{name: a, plugin: files, source: {{type: path}}}}
+    """)
+    conf.write_text(base)
+    cfg = load_config(conf)
+    assert cfg.ui.home_url == "" and cfg.ui.home_label == "Dashboard"
+    conf.write_text(base + "ui: {home_url: 'http://192.0.2.10:8092/', home_label: Home}\n")
+    cfg = load_config(conf)
+    assert cfg.ui.home_url == "http://192.0.2.10:8092/" and cfg.ui.home_label == "Home"

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restore-probe"
-version = "1.0.0"
-description = "Prüft jede Nacht, ob Backups wirklich wiederherstellbar sind: zurückspielen, in einer isolierten Sandbox starten, Daten vergleichen."
+version = "1.1.0"
+description = "Proves every night that backups can actually be restored: restore, start in an isolated sandbox, compare the data."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -24,6 +24,9 @@ restore-probe = "restore_probe.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["restore_probe*"]
+
+[tool.setuptools.package-data]
+restore_probe = ["assets/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
