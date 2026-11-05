@@ -46,6 +46,20 @@ class Source:
         self.cfg = cfg
         self.spec = spec
 
+    def settled(self, f: Path) -> bool:
+        """False while a backup file is probably still being written (modified less than settle_minutes ago).
+
+        Home Assistant and raspiBackup write their archives for many minutes; reading one half-way looks exactly
+        like a damaged backup.
+        """
+        minutes = float(self.spec.get("settle_minutes", 10))
+        age_min = (time.time() - f.stat().st_mtime) / 60.0
+        if age_min < minutes:
+            log.info("Skipping %s: modified %.1f min ago, probably still being written (settle_minutes: %g)",
+                     f.name, age_min, minutes)
+            return False
+        return True
+
     def latest(self) -> BackupInfo:
         raise NotImplementedError
 
@@ -70,6 +84,8 @@ class HANativeSource(Source):
         best: BackupInfo | None = None
         for d in self._dirs():
             for f in d.glob(pattern):
+                if not self.settled(f):
+                    continue
                 try:
                     with tarfile.open(f, "r:") as tar:
                         names = tar.getnames()
@@ -198,6 +214,9 @@ class PathSource(Source):
         files = [f for f in files if f.is_file()]
         if not files:
             raise ProbeError(f"No file matches {pattern}")
+        files = [f for f in files if self.settled(f)]
+        if not files:
+            raise ProbeError(f"All files matching {pattern} are still being written")
         f = max(files, key=lambda p: p.stat().st_mtime)
         st = f.stat()
         return BackupInfo(label=f.name, timestamp=st.st_mtime, size_bytes=st.st_size, location=str(f), meta={})

@@ -185,7 +185,7 @@ Example alerts: `restore_probe_service_ok == 0`, `time() - restore_probe_last_ru
 
 Usually a YAML entry under `services:` with an existing plugin is enough. Decide three things:
 
-1. **Source** (`source.type`): `ha_native` (Home Assistant backups), `restic` (snapshot with a `tag`), `path` (newest file matching a `glob`; tar archives are extracted).
+1. **Source** (`source.type`): `ha_native` (Home Assistant backups), `restic` (snapshot with a `tag`), `path` (newest file matching a `glob`; tar archives are extracted). `ha_native` and `path` skip files modified in the last `settle_minutes` (default 10), so a backup that is still being written is never mistaken for a damaged one.
 2. **Plugin** (`plugin`): see the table above. Services with a container: `http`. Databases: `sqlite`, `postgres`, `mariadb`. Plain files: `files`.
 3. **Production values** for the comparison (`options`), e.g. `compare_dir`, `production_file`, `production_url`.
 

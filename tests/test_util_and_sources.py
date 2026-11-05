@@ -64,7 +64,7 @@ def test_ha_native_latest_and_unencrypted_restore(tmp_path, cfg):
         meta = json.dumps({"date": date, "protected": False, "homeassistant": {"version": "2026.10.4"}, "name": f"b{i}"}).encode()
         outer = _tar_with({"./backup.json": meta, "./homeassistant.tar.gz": inner}, mode="w:")
         (bdir / f"Automatic_backup_{i}.tar").write_bytes(outer)
-    src = HANativeSource(cfg, {"type": "ha_native", "dir": str(bdir), "pattern": "Automatic_backup_*.tar"})
+    src = HANativeSource(cfg, {"type": "ha_native", "dir": str(bdir), "pattern": "Automatic_backup_*.tar", "settle_minutes": 0})
     info = src.latest()
     assert info.label == "Automatic_backup_1.tar"
     assert info.meta["homeassistant"]["version"] == "2026.10.4"
@@ -79,7 +79,7 @@ def test_ha_native_protected_without_key(tmp_path, cfg):
     bdir.mkdir()
     meta = json.dumps({"date": "2026-11-04T05:00:00+01:00", "protected": True}).encode()
     (bdir / "x.tar").write_bytes(_tar_with({"./backup.json": meta, "./homeassistant.tar.gz": b"enc"}, mode="w:"))
-    src = HANativeSource(cfg, {"type": "ha_native", "dir": str(bdir), "pattern": "*.tar"})
+    src = HANativeSource(cfg, {"type": "ha_native", "dir": str(bdir), "pattern": "*.tar", "settle_minutes": 0})
     with pytest.raises(ProbeError, match="HA_BACKUP_KEY"):
         src.restore(src.latest(), tmp_path / "w")
 
@@ -90,9 +90,26 @@ def test_path_source_picks_newest(tmp_path, cfg):
     a.write_bytes(_tar_with({"var/www/index.html": b"alt"}))
     b.write_bytes(_tar_with({"var/www/index.html": b"neu"}))
     import os
+    import time
     os.utime(a, (1, 1))
+    os.utime(b, (time.time() - 3600, time.time() - 3600))
     src = PathSource(cfg, {"type": "path", "glob": str(tmp_path / "websites-*.tar.gz")})
     info = src.latest()
     assert info.label == "websites-2.tar.gz"
     src.restore(info, tmp_path / "w")
     assert (tmp_path / "w/var/www/index.html").read_text() == "neu"
+
+
+def test_sources_skip_files_still_being_written(tmp_path, cfg):
+    import os
+    import time
+    old = tmp_path / "img-1.tgz"
+    fresh = tmp_path / "img-2.tgz"
+    old.write_bytes(b"x")
+    fresh.write_bytes(b"x")          # just written: raspiBackup / HA may still be appending
+    os.utime(old, (time.time() - 3600, time.time() - 3600))
+    src = PathSource(cfg, {"type": "path", "glob": str(tmp_path / "img-*.tgz")})
+    assert src.latest().label == "img-1.tgz"
+    old.unlink()
+    with pytest.raises(ProbeError, match="still being written"):
+        src.latest()
