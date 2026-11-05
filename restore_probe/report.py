@@ -92,10 +92,33 @@ footer{color:var(--muted);font-size:.8rem;margin-top:32px}
 """
 
 
+FAVICON_COLOR = {"ok": "#16a34a", "warn": "#d97706", "fail": "#dc2626"}
+FAVICON_MARK = {
+    "ok": "<path d='M12 16.5l3 3 5.5-6' stroke-width='2.6'/>",
+    "warn": "<path d='M16 11.5v5' stroke-width='2.8'/><circle cx='16' cy='20.6' r='.4' stroke-width='2.8'/>",
+    "fail": "<path d='M13 13l6 6M19 13l-6 6' stroke-width='2.6'/>",
+}
+
+
+def favicon_href(status: str | None) -> str:
+    """Inline SVG favicon: a restore arrow around a mark, colored by the overall result."""
+    color = FAVICON_COLOR.get(status or "", "#64748b")
+    mark = FAVICON_MARK.get(status or "", "")
+    svg = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+           f"<rect width='32' height='32' rx='7' fill='{color}'/>"
+           "<g fill='none' stroke='#fff' stroke-linecap='round' stroke-linejoin='round'>"
+           "<path d='M7.2 18.5A9 9 0 1 0 9.6 9.4' stroke-width='2.4'/>"
+           "<path d='M8.8 4.8l.8 4.6-4.6.8' stroke-width='2.4'/>"
+           f"{mark}</g></svg>")
+    return "data:image/svg+xml," + svg.replace("<", "%3C").replace(">", "%3E").replace("#", "%23")
+
+
 def render_html(cfg: Config, runs: list[dict]) -> str:
     latest = runs[0] if runs else None
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    icon = favicon_href(latest["status"] if latest else None)
     parts = ["<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+             f"<link rel='icon' type='image/svg+xml' href=\"{icon}\">"
              f"<title>{_e(cfg.report_title)}</title><style>{CSS}</style></head><body><main>",
              f"<h1>{_e(cfg.report_title)}</h1>"]
     if not latest:

@@ -72,3 +72,12 @@ def test_prometheus_textfile(cfg):
     assert "restore_probe_run_status 2" in text
     assert text.endswith("\n")
     assert not cfg.prometheus_textfile.with_suffix(".prom.tmp").exists()
+
+
+def test_favicon_follows_overall_status():
+    from restore_probe.report import favicon_href
+    assert favicon_href("ok").startswith("data:image/svg+xml,")
+    assert "%2316a34a" in favicon_href("ok")
+    assert "%23dc2626" in favicon_href("fail")
+    assert "%2364748b" in favicon_href(None)
+    assert "<" not in favicon_href("warn") and "#" not in favicon_href("warn")
