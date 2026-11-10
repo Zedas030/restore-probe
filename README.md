@@ -1,4 +1,10 @@
-# Restore Probe
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Restore Probe" width="100%">
+</p>
+
+<p align="center">
+  <a href="#what-it-does">What it does</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#security-the-sandbox">Sandbox</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#installation">Install</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#secrets">Secrets</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="#adding-services">Adding services</a>
+</p>
 
 **Proves every night that your backups can actually be restored.**
 
